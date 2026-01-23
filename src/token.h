@@ -1,3 +1,6 @@
+#pragma once
+#include "typedefs.h"
+
 typedef enum {
 	TOKEN_EOF, TOKEN_ERROR,
 
@@ -6,7 +9,7 @@ typedef enum {
 	TOKEN_NUMBER,
 
 	TOKEN_LOCAL, TOKEN_FUNCTION, TOKEN_RETURN, TOKEN_IF, TOKEN_THEN, TOKEN_ELSE, TOKEN_ELSEIF,
-	TOKEN_END, TOKEN_WHILE, TOKEN_Do, TOKEN_REPEAT, TOKEN_UNTIL, TOKEN_FOR, TOKEN_IN,
+	TOKEN_END, TOKEN_WHILE, TOKEN_DO, TOKEN_REPEAT, TOKEN_UNTIL, TOKEN_FOR, TOKEN_IN,
 	TOKEN_BREAK, TOKEN_NIL, TOKEN_TRUE, TOKEN_FALSE, TOKEN_AND, TOKEN_OR, TOKEN_NOT,
 
 	TOKEN_TYPE,
@@ -32,3 +35,12 @@ typedef enum {
 	TOKEN_ARROW,
 	TOKEN_PIPE,
 } TokenKind;
+
+typedef struct {
+	TokenKind kind;
+	const char *start;
+	u64 length;
+	u64 line;
+
+	const char *text;
+} Token;
