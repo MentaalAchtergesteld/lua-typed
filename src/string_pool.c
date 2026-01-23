@@ -13,7 +13,7 @@ static u64 hash_string(const char *str, u64 length) {
 	return hash;
 }
 
-StringPool pool_init(MemArena *arena, u64 capacity) {
+StringPool pool_create(MemArena *arena, u64 capacity) {
 	StringPool pool;
 	pool.arena = arena;
 	pool.capacity = capacity;

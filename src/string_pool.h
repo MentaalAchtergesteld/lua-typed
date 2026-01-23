@@ -15,5 +15,5 @@ typedef struct {
 	u64 capacity;
 } StringPool;
 
-StringPool pool_init(MemArena *arena, u64 capacity);
+StringPool pool_create(MemArena *arena, u64 capacity);
 const char *pool_intern(StringPool *pool, const char *start, u64 length);
