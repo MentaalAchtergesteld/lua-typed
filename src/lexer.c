@@ -84,6 +84,40 @@ static bool match(Scanner *s, char expected) {
 	return true;
 }
 
+static int scan_opening_level(Scanner *s) {
+	int level = 0;
+	const char *temp = s->current;
+
+	while (*temp == '=') {
+		level++;
+		temp++;
+	}
+
+	if (*temp != '[') return -1;
+	for (int i = 0; i < level + 1; i++) advance(s);
+	if (peek(s) == '\r') advance(s);
+	if (peek(s) == '\n') { advance(s); s->line++; }
+	return level;
+}
+
+static bool scan_closing(Scanner *s, int level) {
+	if (peek(s) != ']') return false;
+
+	const char *temp = s->current+1;
+
+	for (int i = 0; i < level; i++) {
+		if (temp[i] != '=') return false;
+	}
+
+	if (temp[level] != ']') return false;
+
+	advance(s);
+	for (int i = 0; i < level; i++) advance(s);
+	advance(s);
+
+	return true;
+}
+
 static void skip_whitespace(Scanner *s) {
 	while (true) {
 		char c = peek(s);
@@ -99,6 +133,19 @@ static void skip_whitespace(Scanner *s) {
 				s->line++;
 				break;
 			case '-': if (peek_next(s) == '-') {
+				advance(s); advance(s);
+
+				if (peek(s) == '[') {
+					advance(s);
+					int level = scan_opening_level(s);
+					if (level >= 0) {
+						while (!scan_closing(s, level) && !is_at_end(s)) {
+							if (peek(s) == '\n') s->line++;
+							advance(s);
+						}
+						break;
+					}
+				}
 				while (peek(s) != '\n' && !is_at_end(s)) advance(s);
 				break;
 			} else return;
@@ -197,6 +244,27 @@ static Token string(Scanner *s, StringPool *pool, MemArena *scratch) {
 	return token;
 }
 
+Token long_string(Scanner *s, StringPool *pool, MemArena *scratch, int level) {
+	u64 start_scratch = scratch->pos;
+
+	while (!scan_closing(s, level) && !is_at_end(s)) {
+		char c = advance(s);
+		if (c == '\n') s->line++;
+		arena_push_byte(scratch, c);
+	}
+
+	if (is_at_end(s)) return error_token(s, pool, "Unterminated string.");
+
+	arena_push_byte(scratch, '\0');
+	char *text = (char*)((u8*)scratch + start_scratch);
+	u64 len = scratch->pos - start_scratch - 1;
+
+	Token token = make_empty_token(s, TOKEN_STRING);
+	token.text = pool_intern(pool, text, len);
+	arena_pop_to(scratch, start_scratch);
+	return token;
+}
+
 Token scan_token(Scanner *s, StringPool *pool, MemArena *scratch) {
 	skip_whitespace(s);
 
@@ -214,9 +282,13 @@ Token scan_token(Scanner *s, StringPool *pool, MemArena *scratch) {
 	switch (c) {
 		case '(': return TOKEN(TOKEN_LPAREN);
 		case ')': return TOKEN(TOKEN_LPAREN);
-		case '{': return TOKEN(TOKEN_LBRACE);
+		case '{': return TOKEN(TOKEN_RBRACE);
 		case '}': return TOKEN(TOKEN_RBRACE);
-		case '[': return TOKEN(TOKEN_LBRACK);
+		case '[': {
+			int level = scan_opening_level(s);
+			if (level == -1) return TOKEN(TOKEN_LBRACK);
+			return long_string(s, pool, scratch, level);
+		}
 		case ']': return TOKEN(TOKEN_RBRACK);
 
 		case ',': return TOKEN(TOKEN_COMMA);
@@ -251,7 +323,7 @@ Token scan_token(Scanner *s, StringPool *pool, MemArena *scratch) {
 			return string(s, pool, scratch);
 	}
 
-	return error_token(s, pool, "Unknown character.");
+	return error_token(s, pool, "Unknown character");
 }
 
 Token *tokenize(MemArena *perm, MemArena *scratch, StringPool *pool, char *source) {
