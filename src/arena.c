@@ -37,6 +37,33 @@ void *arena_push(MemArena *arena, u64 size, bool non_zero) {
 	return out;
 };
 
+void *arena_resize(MemArena *arena, u64 *base, u64 old_size, u64 new_size) {
+	if (base == NULL) return arena_push(arena, new_size, false);
+
+	u8 *old_mem = (u8 *)base;
+	u8 *arena_base = (u8 *)arena;
+
+	u8 *old_end = old_mem + old_size;
+
+	u8 *arena_head = arena_base + arena->pos;
+
+	if (old_end == arena_head) {
+		u64 diff = new_size - old_size;
+		if (arena->pos + diff > arena->capacity) {
+			return NULL;
+		}
+
+		arena->pos += diff;
+		return base;
+	}
+
+	void *new_base = arena_push(arena, new_size, false);
+	if (new_base) {
+		memcpy(new_base, base, old_size);
+	}
+	return new_base;
+}
+
 void arena_pop(MemArena *arena, u64 size) {
 	size = MIN(size, arena->pos - ARENA_BASE_POS);
 	arena->pos -= size;
