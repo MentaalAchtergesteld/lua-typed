@@ -47,7 +47,7 @@ typedef struct {
 	u64 line;
 } Scanner;
 
-static Token make_empty_token(Scanner *s, TokenKind kind) {
+static inline Token make_empty_token(Scanner *s, TokenKind kind) {
 	Token token;
 	token.kind = kind;
 	token.start = s->start;
@@ -56,34 +56,25 @@ static Token make_empty_token(Scanner *s, TokenKind kind) {
 	return token;
 }
 
-static Token make_token(Scanner *s, StringPool *pool, TokenKind kind) {
+static inline Token make_token(Scanner *s, StringPool *pool, TokenKind kind) {
 	Token token = make_empty_token(s, kind);
 	token.text = pool_intern(pool, token.start, token.length);
 	return token;
 }
 
-static Token error_token(Scanner *s, StringPool *pool, char *msg) {
+static inline Token error_token(Scanner *s, StringPool *pool, char *msg) {
 	Token token = make_empty_token(s, TOKEN_ERROR);
 	token.text = pool_intern(pool, msg, strlen(msg));
 	return token;
 }
 
-static bool is_at_end(Scanner *s) {
-	return *s->current == '\0';
-}
+#define is_at_end(s) (*(s)->current == '\0')
+#define peek(s) (*(s)->current)
+#define peek_next(s) (is_at_end(s) ? '\0' : (s)->current[1])
 
 static char advance(Scanner *s) {
 	s->current++;
 	return s->current[-1];
-}
-
-static char peek(Scanner *s) {
-	return *s->current;
-}
-
-static char peek_next(Scanner *s) {
-	if (is_at_end(s)) return '\0';
-	return s->current[1];
 }
 
 static bool match(Scanner *s, char expected) {
