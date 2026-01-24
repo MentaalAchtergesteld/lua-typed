@@ -1,8 +1,10 @@
 #pragma once
 #include <stdlib.h>
+#include <memory.h>
 
 #include "arena.h"
 
+#define HDR_SIZE (4 * sizeof(size_t));
 #define vec(T) T *
 
 #define vec_length(VEC) (*(size_t **)VEC)[-1]
@@ -25,10 +27,9 @@ do { \
 		size_t _old_cnt = vec_size(VEC); \
 		size_t _new_cnt = _old_cnt ? _old_cnt * 2 : 32; \
 		size_t _elem_sz = sizeof(**(VEC)); \
-		size_t _hdr_size = 4 * sizeof(size_t); \
 		\
-		size_t _old_bytes = _hdr_size + (_old_cnt * _elem_sz); \
-		size_t _new_bytes = _hdr_size + (_new_cnt * _elem_sz); \
+		size_t _old_bytes = HDR_SIZE + (_old_cnt * _elem_sz); \
+		size_t _new_bytes = HDR_SIZE + (_new_cnt * _elem_sz); \
 		\
 		void *_base = (size_t *)(*(VEC)) - 4; \
 		_base = arena_resize(vec_allocator(VEC), _base, _old_bytes, _new_bytes); \
@@ -37,3 +38,23 @@ do { \
 	} \
 	(*(VEC))[vec_length(VEC)++] = (EL); \
 } while (0)
+
+#define vec_copy(VEC, DEST) _vec_copy((void*)VEC, sizeof(*(VEC)), DEST)
+
+static inline void *_vec_copy(void *v, size_t item_size, MemArena *dest) {
+	if (!v) return NULL;
+
+	size_t len = vec_length(v);
+	size_t hdr_size = HDR_SIZE;
+	size_t data_size = len * item_size;
+
+	size_t *ptr = (size_t *)arena_push(dest, hdr_size + data_size, false);
+
+	ptr[0] = (size_t)dest;
+	ptr[1] = len;
+	ptr[2] = len;
+
+	void *new_vec = (void *)(ptr + 4);
+	memcpy(new_vec, v, data_size);
+	return new_vec;
+}
