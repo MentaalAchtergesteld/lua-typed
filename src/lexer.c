@@ -156,39 +156,40 @@ static Token string(Scanner *s, StringPool *pool, MemArena *scratch) {
 					val = val * 10 + (advance(s) - '0');
 				}
 
-				PUSH_BYTE(scratch, (u8)val);
+				arena_push_byte(scratch, (u8)val);
 				continue;
 			}
 
 			switch (esc) {
-				case 'a': advance(s); PUSH_BYTE(scratch, '\a'); break;
-				case 'b': advance(s); PUSH_BYTE(scratch, '\b'); break;
-				case 'f': advance(s); PUSH_BYTE(scratch, '\f'); break;
-				case 'n': advance(s); PUSH_BYTE(scratch, '\n'); break;
-				case 'r': advance(s); PUSH_BYTE(scratch, '\r'); break;
-				case 't': advance(s); PUSH_BYTE(scratch, '\t'); break;
-				case 'v': advance(s); PUSH_BYTE(scratch, '\v'); break;
-				case '\\': advance(s); PUSH_BYTE(scratch, '\\'); break;
-				case '"':  advance(s); PUSH_BYTE(scratch, '"'); break;
-				case '\'': advance(s); PUSH_BYTE(scratch, '\''); break;
+				case 'a':  advance(s); arena_push_byte(scratch, '\a'); break;
+				case 'b':  advance(s); arena_push_byte(scratch, '\b'); break;
+				case 'f':  advance(s); arena_push_byte(scratch, '\f'); break;
+				case 'n':  advance(s); arena_push_byte(scratch, '\n'); break;
+				case 'r':  advance(s); arena_push_byte(scratch, '\r'); break;
+				case 't':  advance(s); arena_push_byte(scratch, '\t'); break;
+				case 'v':  advance(s); arena_push_byte(scratch, '\v'); break;
+				case '\\': advance(s); arena_push_byte(scratch, '\\'); break;
+				case '"':  advance(s); arena_push_byte(scratch, '"'); break;
+				case '\'': advance(s); arena_push_byte(scratch, '\''); break;
 				case '\n':
 					advance(s);
 					s->line++;
 					break;
-				default: PUSH_BYTE(scratch, advance(s)); break;
+				default: arena_push_byte(scratch, advance(s)); break;
 			}
 		} else {
 			if (c == '\n') s->line++;
-			PUSH_BYTE(scratch, c);
+			arena_push_byte(scratch, c);
 		}
 	}
 
 	if (is_at_end(s)) return error_token(s, pool, "Unterminated string.");
 	advance(s);
 
-	PUSH_BYTE(scratch, '\0');
+	arena_push_byte(scratch, '\0');
+
+	char *text = (char*)((u8*)scratch + start_scratch);
 	u64 len = scratch->pos - start_scratch - 1;
-	char *text = (char*)ARENA_BASE(scratch) + start_scratch;
 
 	Token token = make_empty_token(s, TOKEN_STRING);
 	token.text = pool_intern(pool, text, len);

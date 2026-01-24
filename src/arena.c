@@ -22,9 +22,7 @@ void *arena_push(MemArena *arena, u64 size, bool non_zero) {
 	u64 pos_aligned = ALIGN_UP_POW2(arena->pos, ARENA_ALIGN);
 	u64 new_pos = pos_aligned + size;
 
-	if (new_pos > arena->capacity) {
-		return NULL;
-	}
+	if (new_pos > arena->capacity) return NULL;
 
 	arena->pos = new_pos;
 
@@ -36,6 +34,14 @@ void *arena_push(MemArena *arena, u64 size, bool non_zero) {
 
 	return out;
 };
+
+void *arena_push_byte(MemArena *arena, u8 byte) {
+	if (arena->pos >= arena->capacity) return NULL;
+	u8 *ptr = (u8*)arena + arena->pos;
+	*ptr = byte;
+	arena->pos++;
+	return ptr;
+}
 
 void *arena_resize(MemArena *arena, u64 *base, u64 old_size, u64 new_size) {
 	if (base == NULL) return arena_push(arena, new_size, false);
