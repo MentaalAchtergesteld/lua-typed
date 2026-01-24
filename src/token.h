@@ -32,7 +32,6 @@ typedef enum {
 
 	TOKEN_DOT_DOT,
 	TOKEN_DOT_DOT_DOT,
-	TOKEN_ARROW,
 	TOKEN_PIPE,
 } TokenKind;
 
