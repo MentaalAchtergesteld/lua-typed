@@ -1,0 +1,23 @@
+-- 1. Simple Escapes
+"Newlines:\nLine 1\nLine 2"
+"Tabs:\tColumn 1\tColumn2"
+"Specials: \\ (backslash) and \" (quote)"
+
+-- 2. Single Quotes Escapes
+'Single with double: " (no escape)'
+'Single with single: \' (needs escape)'
+
+-- 3. Decimal ASCII Codes
+"A = \65"           -- Should be 'A'
+"B = \066"          -- Should be 'B'
+"Slash = \047"      -- Should be '\'
+
+-- 4. Line Continuation
+"This string \
+is on 1 line"
+
+-- 5. Null Byte 
+"Before null \0 After null"
+
+-- 6. Mix
+"Everything everywhere all at once: \65 \t \n \" \\ Done"

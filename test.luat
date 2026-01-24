@@ -1,0 +1,59 @@
+-- comment
+identifier
+"Double Quoted String"
+'Single Quoted String'
+420.0
+69
+
+local
+function
+return
+if
+then
+else
+elseif
+end
+while
+do
+repeat
+until
+for
+in
+break
+
+nil
+true
+false
+
+and
+or
+not
+
+type
+
+()
+{}
+[]
+
+,
+.
+:
+;
+
++
+-
+*
+/
+%
+^
+#
+
+=
+==
+~=
+< <=
+> >=
+
+..
+...
+|

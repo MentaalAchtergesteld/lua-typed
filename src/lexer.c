@@ -81,6 +81,11 @@ static char peek(Scanner *s) {
 	return *s->current;
 }
 
+static char peek_next(Scanner *s) {
+	if (is_at_end(s)) return '\0';
+	return s->current[1];
+}
+
 static bool match(Scanner *s, char expected) {
 	if (is_at_end(s)) return false;
 	if (peek(s) != expected) return false;
@@ -102,6 +107,10 @@ static void skip_whitespace(Scanner *s) {
 				advance(s);
 				s->line++;
 				break;
+			case '-': if (peek_next(s) == '-') {
+				while (peek(s) != '\n' && !is_at_end(s)) advance(s);
+				break;
+			} else return;
 			default: return;
 		}
 	}
