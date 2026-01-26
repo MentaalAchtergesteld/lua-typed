@@ -1,59 +1,85 @@
--- comment
-identifier
-"Double Quoted String"
-'Single Quoted String'
-420.0
-69
+-- syntax_test.lua
+-- This file tests the robustness of the Lexer implementation.
 
-local
-function
-return
-if
-then
-else
-elseif
-end
-while
-do
-repeat
-until
-for
-in
-break
+--------------------------------------------------------------------------------
+-- 1. STANDARD STRINGS
+--------------------------------------------------------------------------------
+local str_double  = "This has \"double quotes\" and a newline:\n"
+local str_single  = 'This has \'single quotes\' and a backslash: \\'
+local str_numeric = "ASCII A is \065, Slash is \092"
 
-nil
-true
-false
+--------------------------------------------------------------------------------
+-- 2. LONG STRINGS (RAW)
+--------------------------------------------------------------------------------
 
-and
-or
-not
+-- Level 0: Basic multiline string
+local html = [[
+<html>
+    <body>
+        <div id="test">Raw String (escapes like \n are ignored)</div>
+    </body>
+</html>
+]]
 
-type
+-- Level 1: Useful for embedding Lua code containing [[ ... ]]
+local lua_code = [=[
+    if x then 
+        print([[ This is a nested string inside a Level 1 string ]])
+    end 
+]=]
 
-()
-{}
-[]
+-- Level 2: Complex nesting
+local complex_data = [==[
+    This string contains [=[ Level 1 brackets ]=]
+    and [[ Level 0 brackets ]] without breaking.
+    It stops only when it sees the matching closer with 2 equals.
+]==]
 
-,
-.
-:
-;
+--------------------------------------------------------------------------------
+-- 3. COMMENTS (Should produce NO tokens)
+--------------------------------------------------------------------------------
 
-+
--
-*
-/
-%
-^
-#
+-- This is a single line comment.
 
-=
-==
-~=
-< <=
-> >=
+--[[ 
+    This is a standard block comment.
+    It spans multiple lines.
+]]
 
-..
-...
-|
+--[=[ 
+    This is a "Layered Comment". 
+    It is used to comment out large chunks of code that contain strings.
+    
+    Example:
+    local s = [[ This string would break a normal comment block ]]
+    
+    But because we used [=[ to open the comment, it is safe here.
+]=]
+
+--------------------------------------------------------------------------------
+-- 4. EDGE CASES & ALIGNMENT
+--------------------------------------------------------------------------------
+-- These short strings test if your arena alignment logic is correct.
+"a"
+"ab"
+"abc"
+"abcd"
+"abcde"
+"abcdef"
+"abcdefg"
+"abcdefgh"
+
+--------------------------------------------------------------------------------
+-- 5. TRICKY SYNTAX
+--------------------------------------------------------------------------------
+-- Lua ignores the first newline right after the opening bracket.
+local ignore_newline = [[
+Line 1 (This should not have a leading \n in the token)
+Line 2
+]]
+
+-- Empty strings
+local empty = ""
+local empty_long = [[]]
+
+return true

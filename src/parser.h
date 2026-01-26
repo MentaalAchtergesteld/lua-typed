@@ -17,22 +17,26 @@ typedef struct {
 	const char *name;
 	Expr *type;
 } Param;
+#define PARAM(name, type) (Param){ name, type }
 
 typedef struct {
 	const char *name;
 	Expr *constraints;
 } GenericParam;
+#define GENERIC_PARAM(name, constraints) (GenericParam){ name, constraints }
 
 typedef struct {
 	GenericParam *generics;
 	Param *params;
 	Expr *return_types;
 } FuncSignature;
+#define FUNC_SIGNATURE(generics, params, return_types) (FuncSignature){ generics, params, return_types }
 
 typedef struct {
 	Expr *key;
 	Expr *value;
 } TableEntry;
+#define TABLE_ENRTY(key, value) (TableEntry){ key, value }
 
 typedef enum {
 	EXPR_NIL, EXPR_BOOL, EXPR_NUMBER, EXPR_STRING,
@@ -45,77 +49,29 @@ typedef enum {
 #define EXPR_HEADER ExprKind kind
 
 struct Expr {
-	EXPR_HEADER;
+	ExprKind kind;
+
+	union {
+		bool boolean;
+		double number;
+		const char *string;
+		const char *variable;
+
+		struct { Expr *left; Expr *right; BinaryOp op; } binary;
+		struct { Expr *operand; UnaryOp op; } unary;
+
+		struct { Expr *callee; Expr *args; } call;
+		struct { Expr *target; Expr *index; } index;
+		struct { Expr *target; const char *field; } field;
+
+		struct { FuncSignature signature; Stmt *body; } function;
+		struct { TableEntry *entries; } table;
+		struct { const char *name; TableEntry *entries; } struct_init;
+	} as;
 };
 
-typedef struct {
-	EXPR_HEADER;
-	bool value;
-} BoolLit;
-
-typedef struct {
-	EXPR_HEADER;
-	float value;
-} NumberLit;
-
-typedef struct {
-	EXPR_HEADER;
-	const char* value;
-} StringLit;
-
-typedef struct {
-	EXPR_HEADER;
-	const char *name;
-} VariableExpr;
-
-typedef struct {
-	EXPR_HEADER;
-	Expr *left;
-	Expr *right;
-	BinaryOp op;
-} BinaryExpr;
-
-typedef struct {
-	EXPR_HEADER;
-	Expr *operand;
-	UnaryOp op;
-} UnaryExpr;
-
-typedef struct {
-	EXPR_HEADER;
-	Expr *callee;
-	Expr *args;
-} CallExpr;
-
-typedef struct {
-	EXPR_HEADER;
-	Expr *target;
-	Expr *index;
-} IndexExpr;
-
-typedef struct {
-	EXPR_HEADER;
-	Expr *target;
-	const char *field;
-} FieldExpr;
-
-typedef struct {
-	FuncSignature signature;
-	Stmt *body;
-} FuncExpr;
-
-typedef struct {
-	TableEntry *entries;
-} TableExpr;
-
-typedef struct {
-	const char *name;
-	TableEntry *fields;
-	int count;
-} StructExpr;
-
 typedef enum {
-	STMT_BLOCK, STMT_EXPR, STMT_RETURN, STMT_BREAK,
+	STMT_EXPR, STMT_BLOCK, STMT_RETURN, STMT_BREAK,
 	STMT_ASSIGN, STMT_LOCAL,
 	STMT_IF, STMT_WHILE, STMT_REPEAT, STMT_FOR_NUM, STMT_FOR_GEN,
 	STMT_FUNCTION, STMT_STRUCT, STMT_TRAIT, STMT_IMPL, STMT_TYPE_ALIAS,
@@ -124,91 +80,56 @@ typedef enum {
 #define STMT_HEADER StmtKind kind
 
 struct Stmt {
-	STMT_HEADER;
+	StmtKind kind;
+
+	union {
+		Expr *expression;
+		struct { Stmt *stmts; } block;
+		struct { Expr *values; } return_stmt;
+
+		struct { Expr *targets; Expr *values; } assign;
+		struct { Param *decls; Expr *values; } local;
+
+		struct { Expr *condition; Stmt *then_branch; Stmt *else_branch; } if_stmt;
+		struct { Expr *condition; Stmt *body; } while_stmt;
+		struct { Stmt *body; Expr *condition; } repeat_stmt;
+		struct {
+			const char *name; Expr *start; Expr *end; Expr *step; Stmt *body;
+		} for_num;
+		struct {
+			const char *names; Expr *iter; Stmt *body;
+		} for_gen;
+
+		struct {
+			const char *name;
+			FuncSignature *signature;
+			Stmt *body;
+		} func_decl;
+
+		struct {
+			const char *name;
+			GenericParam *generics;
+			Param *fields;
+		} struct_decl;
+
+		struct {
+			const char *name;
+			GenericParam *generics;
+			const char *func_names;
+			FuncSignature *functions;
+		} trait_decl;
+
+		struct {
+			const char *target_name;
+			GenericParam *generics;
+
+			const char *trait_name;
+			Expr *trait_args;
+
+			Stmt *functions;
+		} impl_stmt;
+
+		struct { const char *name; Expr *type; } type_alias;
+	} as;
+
 };
-
-typedef struct {
-	Stmt *statements;
-} BlockStmt;
-
-typedef struct {
-	Expr *expression;
-} ExprStmt;
-
-typedef struct {
-	Expr *values;
-} ReturnStmt;
-
-typedef struct {
-	Expr *targets;
-	Expr *values;
-} AssignStmt;
-
-typedef struct {
-	Param *decls;
-	Expr *values;
-} LocalStmt;
-
-typedef struct {
-	Expr *condition;
-	Stmt *then_branch;
-	Stmt *else_branch;
-} IfStmt;
-
-typedef struct {
-	Expr *condition;
-	Stmt *body;
-} WhileStmt;
-
-typedef struct {
-	Stmt *body;
-	Expr *condition;
-} RepeatStmt;
-
-typedef struct {
-	const char *name;
-	Expr *start;
-	Expr *end;
-	Expr *step;
-	Stmt *body;
-} ForNumStmt;
-
-typedef struct {
-	const char *names;
-	Expr *iterator;
-	Stmt *body;
-} ForGenStmt;
-
-typedef struct {
-	const char *name;
-	FuncSignature *signature;
-	Stmt *body;
-} FuncDecl;
-
-typedef struct {
-	const char *name;
-	GenericParam *generics;
-	Param *fields;
-} StructDecl;
-
-typedef struct {
-	const char *name;
-	GenericParam *generics;
-	const char *func_names;
-	FuncSignature *functions;
-} TraitDecl;
-
-typedef struct {
-	const char *target_name;
-	GenericParam *generics;
-
-	const char *trait_name;
-	Expr *trait_args;
-
-	Stmt *functions;
-} ImplStmt;
-
-typedef struct {
-	const char *name;
-	Expr *type;
-} TypeAliasStmt;

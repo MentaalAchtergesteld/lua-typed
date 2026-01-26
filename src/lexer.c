@@ -37,6 +37,9 @@ static Keyword keywords[] = {
 	{"or",       TOKEN_OR},
 	{"not",      TOKEN_NOT},
 	{"type",     TOKEN_TYPE},
+	{"impl",     TOKEN_IMPL},
+	{"trait",    TOKEN_TRAIT},
+	{"struct",   TOKEN_STRUCT},
 };
 
 #define KEYWORD_COUNT (sizeof(keywords)/sizeof(keywords[0]))
