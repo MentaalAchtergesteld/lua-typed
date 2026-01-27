@@ -48,6 +48,7 @@ typedef struct {
 	const char *start;
 	const char *current;
 	u64 line;
+	StringPool *pool;
 } Scanner;
 
 static inline Token make_empty_token(Scanner *s, TokenKind kind) {
@@ -59,15 +60,15 @@ static inline Token make_empty_token(Scanner *s, TokenKind kind) {
 	return token;
 }
 
-static inline Token make_token(Scanner *s, StringPool *pool, TokenKind kind) {
+static inline Token make_token(Scanner *s, TokenKind kind) {
 	Token token = make_empty_token(s, kind);
-	token.text = pool_intern(pool, token.start, token.length);
+	token.text = pool_intern(s->pool, token.start, token.length);
 	return token;
 }
 
-static inline Token error_token(Scanner *s, StringPool *pool, char *msg) {
+static inline Token error_token(Scanner *s, char *msg) {
 	Token token = make_empty_token(s, TOKEN_ERROR);
-	token.text = pool_intern(pool, msg, strlen(msg));
+	token.text = pool_intern(s->pool, msg, strlen(msg));
 	return token;
 }
 
@@ -171,7 +172,7 @@ static TokenKind get_identifier_kind(const char *start, u64 length) {
 	return TOKEN_IDENTIFIER;
 }
 
-static Token identifier(Scanner *s, StringPool *pool) {
+static Token identifier(Scanner *s) {
 	const char *start = s->start;
 	while (isalnum(*s->current) || *s->current == '_') s->current++;
 	
@@ -179,21 +180,20 @@ static Token identifier(Scanner *s, StringPool *pool) {
 	
 	TokenKind kind = get_identifier_kind(start, length);
 
-	return make_token(s, pool, kind);
+	return make_token(s, kind);
 };
 
-static Token number(Scanner *s, StringPool *pool) {
+static Token number(Scanner *s) {
 	while (isdigit(*s->current)) s->current++;
 	if (match(s, '.')) while (isdigit(*s->current)) s->current++;
 
-	return make_token(s, pool, TOKEN_NUMBER);
+	return make_token(s, TOKEN_NUMBER);
 };
 
-static Token string(Scanner *s, StringPool *pool, MemArena *scratch) {
+static Token string(Scanner *s) {
 	char quote = advance(s);
 
-	u64 start_scratch = scratch->pos;
-
+	char *buf = NULL;
 	while (peek(s) != quote && !is_at_end(s)) {
 		char c = advance(s);
 
@@ -206,81 +206,82 @@ static Token string(Scanner *s, StringPool *pool, MemArena *scratch) {
 					val = val * 10 + (advance(s) - '0');
 				}
 
-				arena_push_byte(scratch, (u8)val);
+				char byte = (char)val;
+				vec_push(buf, byte);
 				continue;
 			}
 
 			switch (esc) {
-				case 'a':  advance(s); arena_push_byte(scratch, '\a'); break;
-				case 'b':  advance(s); arena_push_byte(scratch, '\b'); break;
-				case 'f':  advance(s); arena_push_byte(scratch, '\f'); break;
-				case 'n':  advance(s); arena_push_byte(scratch, '\n'); break;
-				case 'r':  advance(s); arena_push_byte(scratch, '\r'); break;
-				case 't':  advance(s); arena_push_byte(scratch, '\t'); break;
-				case 'v':  advance(s); arena_push_byte(scratch, '\v'); break;
-				case '\\': advance(s); arena_push_byte(scratch, '\\'); break;
-				case '"':  advance(s); arena_push_byte(scratch, '"'); break;
-				case '\'': advance(s); arena_push_byte(scratch, '\''); break;
-				case '\n':
-					advance(s);
-					s->line++;
-					break;
-				default: arena_push_byte(scratch, advance(s)); break;
+				case 'a':  advance(s); { char b = '\a'; vec_push(buf, b); } break;
+				case 'b':  advance(s); { char b = '\b'; vec_push(buf, b); } break;
+				case 'f':  advance(s); { char b = '\f'; vec_push(buf, b); } break;
+				case 'n':  advance(s); { char b = '\n'; vec_push(buf, b); } break;
+				case 'r':  advance(s); { char b = '\r'; vec_push(buf, b); } break;
+				case 't':  advance(s); { char b = '\t'; vec_push(buf, b); } break;
+				case 'v':  advance(s); { char b = '\v'; vec_push(buf, b); } break;
+				case '\\': advance(s); { char b = '\\'; vec_push(buf, b); } break;
+				case '"':  advance(s); { char b = '"';  vec_push(buf, b); } break;
+				case '\'': advance(s); { char b = '\''; vec_push(buf, b); } break;
+				case '\n': advance(s); s->line++; { char b = '\n'; vec_push(buf, b); } break;
+				default: vec_push(buf, advance(s)); break;
 			}
 		} else {
 			if (c == '\n') s->line++;
-			arena_push_byte(scratch, c);
+			vec_push(buf, c);
 		}
 	}
 
-	if (is_at_end(s)) return error_token(s, pool, "Unterminated string.");
+	if (is_at_end(s)) {
+		vec_free(buf);
+		return error_token(s, "Unterminated string.");
+	}
+
 	advance(s);
-
-	arena_push_byte(scratch, '\0');
-
-	char *text = (char*)((u8*)scratch + start_scratch);
-	u64 len = scratch->pos - start_scratch - 1;
+	vec_push(buf, '\0');
 
 	Token token = make_empty_token(s, TOKEN_STRING);
-	token.text = pool_intern(pool, text, len);
-	arena_pop_to(scratch, start_scratch);
+	token.text = pool_intern(s->pool, buf, vec_size(buf)-1);
+
+	vec_free(buf);
 	return token;
 }
 
-Token long_string(Scanner *s, StringPool *pool, MemArena *scratch, int level) {
-	u64 start_scratch = scratch->pos;
+Token long_string(Scanner *s, int level) {
+	char *buf = NULL;
 
 	while (!scan_closing(s, level) && !is_at_end(s)) {
 		char c = advance(s);
 		if (c == '\n') s->line++;
-		arena_push_byte(scratch, c);
+		vec_push(buf, c);
 	}
 
-	if (is_at_end(s)) return error_token(s, pool, "Unterminated string.");
+	if (is_at_end(s)) {
+		vec_free(buf);
+		return error_token(s, "Unterminated string.");
+	}
 
-	arena_push_byte(scratch, '\0');
-	char *text = (char*)((u8*)scratch + start_scratch);
-	u64 len = scratch->pos - start_scratch - 1;
+	vec_push(buf, '\0');
 
 	Token token = make_empty_token(s, TOKEN_STRING);
-	token.text = pool_intern(pool, text, len);
-	arena_pop_to(scratch, start_scratch);
+	token.text = pool_intern(s->pool, buf, vec_size(buf)-1);
+
+	vec_free(buf);
 	return token;
 }
 
-Token scan_token(Scanner *s, StringPool *pool, MemArena *scratch) {
+Token scan_token(Scanner *s) {
 	skip_whitespace(s);
 
 	s->start = s->current;
 
-	if (is_at_end(s)) return make_token(s, pool, TOKEN_EOF);
+	if (is_at_end(s)) return make_token(s, TOKEN_EOF);
 
 	char c = advance(s);
 
-	if (isalpha(c) || c == '_') return identifier(s, pool);
-	if (isdigit(c)) return number(s, pool);
+	if (isalpha(c) || c == '_') return identifier(s);
+	if (isdigit(c)) return number(s);
 
-	#define TOKEN(KIND) make_token(s, pool, KIND)
+	#define TOKEN(KIND) make_token(s, KIND)
 
 	switch (c) {
 		case '(': return TOKEN(TOKEN_LPAREN);
@@ -290,7 +291,7 @@ Token scan_token(Scanner *s, StringPool *pool, MemArena *scratch) {
 		case '[': {
 			int level = scan_opening_level(s);
 			if (level == -1) return TOKEN(TOKEN_LBRACK);
-			return long_string(s, pool, scratch, level);
+			return long_string(s, level);
 		}
 		case ']': return TOKEN(TOKEN_RBRACK);
 
@@ -310,7 +311,7 @@ Token scan_token(Scanner *s, StringPool *pool, MemArena *scratch) {
 		case '=': if (match(s, '=')) return TOKEN(TOKEN_EQ_EQ);
 		          else return TOKEN(TOKEN_EQ);
 		case '~': if (match(s, '=')) return TOKEN(TOKEN_NOT_EQ);
-		          else return error_token(s, pool, "Unknown character.");
+		          else return error_token(s, "Unknown character.");
 		case '<': if (match(s, '=')) return TOKEN(TOKEN_LTEQ);
 		          else return TOKEN(TOKEN_LT);
 		case '>': if (match(s, '=')) return TOKEN(TOKEN_GTEQ);
@@ -323,24 +324,27 @@ Token scan_token(Scanner *s, StringPool *pool, MemArena *scratch) {
 		case '"':
 		case '\'':
 			s->current--;
-			return string(s, pool, scratch);
+			return string(s);
 	}
 
-	return error_token(s, pool, "Unknown character");
+	return error_token(s, "Unknown character");
 }
 
-Token *tokenize(MemArena *perm, MemArena *scratch, StringPool *pool, char *source) {
-	Token *temp_tokens = vec_new(Token, scratch);
+Token *tokenize(char *source, StringPool *pool) {
+	Token *tokens = NULL; 
 
-	Scanner s = { source, source, 1 };
+	Scanner s = { source, source, 1, pool };
 
 	while (!is_at_end(&s)) {
-		Token token = scan_token(&s, pool, scratch);
-		vec_append(&temp_tokens, token);
+		Token t = scan_token(&s);
+		vec_push(tokens, t);
+		if (t.kind == TOKEN_EOF) break;
 	}
 
-	Token *final_tokens = vec_copy(temp_tokens, perm);
-	arena_clear(scratch);
+	if (tokens && tokens[vec_size(tokens)-1].kind != TOKEN_EOF) {
+		Token eof = make_empty_token(&s, TOKEN_EOF);
+		vec_push(tokens, eof);
+	}
 
-	return final_tokens;
+	return tokens;
 }

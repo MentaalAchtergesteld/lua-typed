@@ -3,4 +3,4 @@
 #include "token.h"
 #include "string_pool.h"
 
-Token *tokenize(MemArena *perm, MemArena *scratch, StringPool *pool, char *source);
+Token *tokenize(char *source, StringPool *pool);

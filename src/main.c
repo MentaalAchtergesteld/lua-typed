@@ -43,19 +43,19 @@ int main(int argc, char **argv) {
 	}
 
 	MemArena *perm_arena = arena_create(MiB(1));
-	MemArena *scratch_arena = arena_create(MiB(1));
 	StringPool pool = pool_create(perm_arena, KiB(4));
 
 	char *source = read_file(perm_arena, argv[1]);
 	if (!source) return 1;
 
-	Token *tokens = tokenize(perm_arena, scratch_arena, &pool, source);
+	Token *tokens = tokenize(source, &pool);
 
-	for (size_t i = 0; i < vec_length(&tokens); i++) {
+	for (size_t i = 0; i < vec_size(tokens); i++) {
 		printf("Token: %s; Kind: %d\n", tokens[i].text, tokens[i].kind);
 	}
 
-	arena_destroy(scratch_arena);
+	vec_free(tokens);
+
 	arena_destroy(perm_arena);
 	return 0;
 }
