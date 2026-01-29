@@ -1,0 +1,111 @@
+-- ==========================================
+-- 1. TYPE ALIASES & GENERICS
+-- ==========================================
+type MyNumber = number;
+type StringList = [string];
+type Matrix = [[number]]; -- Recursieve array types
+
+-- ==========================================
+-- 2. TRAIT DEFINITIES
+-- ==========================================
+trait Drawable
+    function draw(canvas: Canvas)
+    function get_size(): number
+end
+
+trait Comparable<T>
+    function compare(other: T): number
+end
+
+-- ==========================================
+-- 3. STRUCT DEFINITIES
+-- ==========================================
+struct Vec2<T>
+    x: T,
+    y: T
+end
+
+struct Player
+    name: string,
+    score: number,
+    inventory: [string]
+end
+
+-- ==========================================
+-- 4. IMPLEMENTATIES
+-- ==========================================
+
+-- Inherent impl (methodes op de struct zelf)
+impl Player
+    function new(name: string): Player
+        -- In een echte taal zou je hier returnen
+        return Player { name: name, score: 0 }; 
+    end
+
+    function level_up()
+        -- Expression parsing
+        local new_score: number = self.score + 100;
+    end
+end
+
+-- Trait impl
+impl<T> Vec2<T> for Drawable
+    function draw(canvas: Canvas)
+        -- Draw logic
+    end
+
+    function get_size(): number
+        return 0;
+    end
+end
+
+-- ==========================================
+-- 5. FUNCTIES & LOGICA
+-- ==========================================
+
+function calculate_physics(p: Player, delta: number): void
+    
+    -- Local declaraties
+    local gravity: number = 9.81;
+    local is_falling: bool, speed: number = true, 0;
+
+    -- IF Statement (zonder 'then' gebaseerd op jouw parser code)
+    if p.score > 1000 then
+        print("Highscore!");
+    elseif p.score < 0 then
+        print("Game Over");
+    else
+        print("Keep going");
+    end
+
+    -- WHILE Loop
+    while is_falling do
+        speed = speed + gravity * delta;
+        if speed > 100 then
+            break; 
+        end
+    end
+
+    -- REPEAT Loop
+    repeat
+        delta = delta - 0.1;
+    until delta <= 0
+
+    -- NUMERIC FOR Loop
+    for i = 0, 10, 1 do
+        local val: number = i * 2;
+    end
+
+    -- GENERIC FOR Loop
+    for k, v in pairs(p.inventory) do
+        print(v);
+    end
+
+    return;
+end
+
+local raw_string: string = r###"
+	Dit is een raw string.
+	Multiline.
+	Heel vet
+"###;

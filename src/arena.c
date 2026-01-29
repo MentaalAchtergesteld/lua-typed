@@ -43,7 +43,7 @@ void *arena_push_byte(MemArena *arena, u8 byte) {
 	return ptr;
 }
 
-void *arena_resize(MemArena *arena, u64 *base, u64 old_size, u64 new_size) {
+void *arena_resize(MemArena *arena, void *base, u64 old_size, u64 new_size) {
 	if (base == NULL) return arena_push(arena, new_size, false);
 
 	u8 *old_mem = (u8 *)base;

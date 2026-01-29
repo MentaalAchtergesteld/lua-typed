@@ -246,27 +246,40 @@ static Token string(Scanner *s) {
 	return token;
 }
 
-Token long_string(Scanner *s, int level) {
-	char *buf = NULL;
+Token raw_string(Scanner *s) {
+	int hashes = 0;
+	while (match(s, '#')) hashes++;
 
-	while (!scan_closing(s, level) && !is_at_end(s)) {
+	if (peek(s) != '"') return error_token(s, "Expected '\"' after raw string prefix.");
+	advance(s);
+
+	char *buf = NULL;
+	match(s, '\n');
+	
+	while (!is_at_end(s)) {
+		if (peek(s) == '"') {
+			const char *temp = s->current+1;
+
+			bool closed = true;
+			for (int i = 0; i < hashes; i++) {
+				if (temp[i] != '#') { closed = false; break; }
+			}
+
+			if (closed) {
+				advance(s);
+				for (int i = 0; i < hashes; i++) advance(s);
+				Token token = make_empty_token(s, TOKEN_STRING);
+				token.text = pool_intern(s->pool, buf, vec_size(buf));
+				vec_free(buf);
+				return token;
+			}
+		}
 		char c = advance(s);
-		if (c == '\n') s->line++;
 		vec_push(buf, c);
 	}
 
-	if (is_at_end(s)) {
-		vec_free(buf);
-		return error_token(s, "Unterminated string.");
-	}
-
-	vec_push(buf, '\0');
-
-	Token token = make_empty_token(s, TOKEN_STRING);
-	token.text = pool_intern(s->pool, buf, vec_size(buf)-1);
-
 	vec_free(buf);
-	return token;
+	return error_token(s, "Unterminated string.");
 }
 
 Token scan_token(Scanner *s) {
@@ -278,21 +291,17 @@ Token scan_token(Scanner *s) {
 
 	char c = advance(s);
 
-	if (isalpha(c) || c == '_') return identifier(s);
+	if ((c != 'r' && isalpha(c)) || c == '_') return identifier(s);
 	if (isdigit(c)) return number(s);
 
 	#define TOKEN(KIND) make_token(s, KIND)
 
 	switch (c) {
 		case '(': return TOKEN(TOKEN_LPAREN);
-		case ')': return TOKEN(TOKEN_LPAREN);
-		case '{': return TOKEN(TOKEN_RBRACE);
+		case ')': return TOKEN(TOKEN_RPAREN);
+		case '{': return TOKEN(TOKEN_LBRACE);
 		case '}': return TOKEN(TOKEN_RBRACE);
-		case '[': {
-			int level = scan_opening_level(s);
-			if (level == -1) return TOKEN(TOKEN_LBRACK);
-			return long_string(s, level);
-		}
+		case '[': return TOKEN(TOKEN_LBRACK);
 		case ']': return TOKEN(TOKEN_RBRACK);
 
 		case ',': return TOKEN(TOKEN_COMMA);
@@ -321,6 +330,8 @@ Token scan_token(Scanner *s) {
 								if (match(s, '.')) return TOKEN(TOKEN_DOT_DOT_DOT);
 								else return TOKEN(TOKEN_DOT_DOT);
 							} else return TOKEN(TOKEN_DOT);
+		case 'r': if (peek(s) == '"' || peek(s) == '#') return raw_string(s);
+		          else return identifier(s);
 		case '"':
 		case '\'':
 			s->current--;

@@ -14,7 +14,7 @@ typedef struct {
 #define vec_create(type, cap) (type*)_vec_create(cap, sizeof(type))
 #define vec_push(v, value) do {\
 	if (vec_size(v) >= vec_cap(v)) {\
-		_vec_grow((void**)&(v), sizeof(*(v)));\
+		_vec_grow((void**)&(v), sizeof((v)[0])); /* NOLINT(bugprone-sizeof-expression) */\
 	}\
 	(v)[vec_hdr(v)->size++] = (value);\
 } while (0)\

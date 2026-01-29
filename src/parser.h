@@ -1,8 +1,66 @@
 #pragma once
+#include "arena.h"
+#include "token.h"
 #include <stdbool.h>
 
+typedef struct Type Type;
 typedef struct Expr Expr;
 typedef struct Stmt Stmt;
+
+typedef struct {
+	const char *name;
+	Type *type;
+} Param;
+#define PARAM(name, type) (Param){ name, type }
+
+typedef struct {
+	const char *name;
+	Type **constraints;
+	int constraint_count;
+} GenericParam;
+#define GENERIC_PARAM(name, constraints) (GenericParam){ name, constraints }
+
+typedef struct {
+	GenericParam *generics; int generic_count;
+	Param *params; int param_count;
+	Type **return_types; int return_count;
+} FuncSignature;
+#define FUNC_SIGNATURE(generics, params, return_types) (FuncSignature){ generics, params, return_types }
+
+typedef struct {
+	Expr *key;
+	Expr *value;
+} TableEntry;
+#define TABLE_ENTRY(key, value) (TableEntry){ key, value }
+
+typedef enum {
+	TYPE_VOID, TYPE_NIL, TYPE_BOOL, TYPE_NUMBER, TYPE_STRING,
+	TYPE_STRUCT,
+	TYPE_TRAIT,
+	TYPE_GENERIC,
+	TYPE_FUNCTION,
+	TYPE_ARRAY
+} TypeKind;
+
+struct Type {
+	TypeKind kind;
+
+	union {
+		const char *param_name;
+		struct {
+			const char *name;
+			Type **args; int arg_count;
+		} user_type;
+
+		struct {
+			Type *inner;
+		} array;
+
+		struct {
+			FuncSignature *sig;
+		} function;
+	} as;
+};
 
 typedef enum {
 	OP_ADD, OP_SUB, OP_MUL, OP_DIV, OP_MOD, OP_POW, OP_CONCAT,
@@ -13,31 +71,6 @@ typedef enum {
 	OP_NEGATE, OP_NOT, OP_LEN
 } UnaryOp;
 
-typedef struct {
-	const char *name;
-	Expr *type;
-} Param;
-#define PARAM(name, type) (Param){ name, type }
-
-typedef struct {
-	const char *name;
-	Expr *constraints;
-} GenericParam;
-#define GENERIC_PARAM(name, constraints) (GenericParam){ name, constraints }
-
-typedef struct {
-	GenericParam *generics;
-	Param *params;
-	Expr *return_types;
-} FuncSignature;
-#define FUNC_SIGNATURE(generics, params, return_types) (FuncSignature){ generics, params, return_types }
-
-typedef struct {
-	Expr *key;
-	Expr *value;
-} TableEntry;
-#define TABLE_ENRTY(key, value) (TableEntry){ key, value }
-
 typedef enum {
 	EXPR_NIL, EXPR_BOOL, EXPR_NUMBER, EXPR_STRING,
 	EXPR_VARARG, EXPR_VARIABLE,
@@ -45,8 +78,6 @@ typedef enum {
 	EXPR_CALL, EXPR_INDEX, EXPR_FIELD,
 	EXPR_FUNCTION, EXPR_TABLE, EXPR_STRUCT
 } ExprKind;
-
-#define EXPR_HEADER ExprKind kind
 
 struct Expr {
 	ExprKind kind;
@@ -60,13 +91,13 @@ struct Expr {
 		struct { Expr *left; Expr *right; BinaryOp op; } binary;
 		struct { Expr *operand; UnaryOp op; } unary;
 
-		struct { Expr *callee; Expr *args; } call;
+		struct { Expr *callee; Expr **args; int arg_count; } call;
 		struct { Expr *target; Expr *index; } index;
 		struct { Expr *target; const char *field; } field;
 
 		struct { FuncSignature signature; Stmt *body; } function;
-		struct { TableEntry *entries; } table;
-		struct { const char *name; TableEntry *entries; } struct_init;
+		struct { TableEntry *entries; int entry_count; } table;
+		struct { Expr *name; TableEntry *entries; int entry_count; } struct_init;
 	} as;
 };
 
@@ -77,18 +108,16 @@ typedef enum {
 	STMT_FUNCTION, STMT_STRUCT, STMT_TRAIT, STMT_IMPL, STMT_TYPE_ALIAS,
 } StmtKind;
 
-#define STMT_HEADER StmtKind kind
-
 struct Stmt {
 	StmtKind kind;
 
 	union {
 		Expr *expression;
-		struct { Stmt *stmts; } block;
-		struct { Expr *values; } return_stmt;
+		struct { Stmt **stmts; int stmt_count; } block;
+		struct { Expr **values; int value_count; } return_stmt;
 
-		struct { Expr *targets; Expr *values; } assign;
-		struct { Param *decls; Expr *values; } local;
+		struct { Expr **targets; int target_count; Expr **values; int value_count; } assign;
+		struct { Param *decls; int decl_count; Expr **values; int value_count; } local;
 
 		struct { Expr *condition; Stmt *then_branch; Stmt *else_branch; } if_stmt;
 		struct { Expr *condition; Stmt *body; } while_stmt;
@@ -97,7 +126,9 @@ struct Stmt {
 			const char *name; Expr *start; Expr *end; Expr *step; Stmt *body;
 		} for_num;
 		struct {
-			const char *names; Expr *iter; Stmt *body;
+			const char **names; int name_count;
+			Expr *iter;
+			Stmt *body;
 		} for_gen;
 
 		struct {
@@ -108,28 +139,38 @@ struct Stmt {
 
 		struct {
 			const char *name;
-			GenericParam *generics;
-			Param *fields;
+			GenericParam *generics; int generic_count;
+			Param *fields; int field_count;
 		} struct_decl;
 
 		struct {
 			const char *name;
-			GenericParam *generics;
-			const char *func_names;
-			FuncSignature *functions;
+			GenericParam *generics; int generic_count;
+			const char **func_names;
+			FuncSignature **functions;
+			int func_count;
 		} trait_decl;
 
 		struct {
+			GenericParam *generics; int generic_count;
+
 			const char *target_name;
-			GenericParam *generics;
+			Type **target_args; int target_arg_count;
 
 			const char *trait_name;
-			Expr *trait_args;
+			Type **trait_args; int trait_arg_count;
 
-			Stmt *functions;
+			Stmt **functions;
+			int func_count;
 		} impl_stmt;
 
-		struct { const char *name; Expr *type; } type_alias;
+		struct { const char *name; Type *type; } type_alias;
 	} as;
-
 };
+
+typedef struct {
+	Stmt *root;
+	bool success;
+} ParseResult;
+
+ParseResult parse(Token *tokens, MemArena *arena);

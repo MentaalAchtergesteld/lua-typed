@@ -1,7 +1,9 @@
 #include <stdio.h>
 
 #include "arena.h"
+#include "debug.h"
 #include "lexer.h"
+#include "parser.h"
 #include "string_pool.h"
 #include "vec.h"
 
@@ -43,16 +45,31 @@ int main(int argc, char **argv) {
 	}
 
 	MemArena *perm_arena = arena_create(MiB(1));
-	StringPool pool = pool_create(perm_arena, KiB(4));
+	StringPool pool = pool_create(perm_arena, KiB(50));
 
 	char *source = read_file(perm_arena, argv[1]);
 	if (!source) return 1;
 
 	Token *tokens = tokenize(source, &pool);
+	ParseResult parse_result = parse(tokens, perm_arena);
 
-	for (size_t i = 0; i < vec_size(tokens); i++) {
-		printf("Token: %s; Kind: %d\n", tokens[i].text, tokens[i].kind);
+	if (parse_result.success) {
+		Stmt *root = parse_result.root;
+
+		FILE *token_dump = fopen("token_dump.txt", "w");
+		if (token_dump) {
+			fprint_tokens(token_dump, tokens);
+			fclose(token_dump);
+		}
+		FILE *ast_dump = fopen("ast_dump.txt", "w");
+		if (ast_dump) {
+			fprint_ast(ast_dump, root);
+			fclose(ast_dump);
+		}
+	} else {
+		printf("Parser Error.\n");
 	}
+
 
 	vec_free(tokens);
 

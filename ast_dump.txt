@@ -1,0 +1,89 @@
+BLOCK
+  TYPE MyNumber = number
+  TYPE StringList = [string]
+  TYPE Matrix = [[number]]
+  TRAIT Drawable
+    fn draw(canvas: Canvas)
+    fn get_size() -> number
+  END TRAIT
+  TRAIT Comparable<T>
+    fn compare(other: T) -> number
+  END TRAIT
+  STRUCT Vec2<T>
+    x: T
+    y: T
+  END STRUCT
+  STRUCT Player
+    name: string
+    score: number
+    inventory: [string]
+  END STRUCT
+  IMPL Player
+    FUNCTION new(name: string) -> Player
+      BLOCK
+        RETURN Player { name = name, score = 0 }
+      END BLOCK
+    END FUNC
+    FUNCTION level_up()
+      BLOCK
+        LOCAL new_score: number = (self.score + 100)
+      END BLOCK
+    END FUNC
+  END IMPL
+  IMPL<T> Vec2<T> FOR Drawable
+    FUNCTION draw(canvas: Canvas)
+      BLOCK
+      END BLOCK
+    END FUNC
+    FUNCTION get_size() -> number
+      BLOCK
+        RETURN 0
+      END BLOCK
+    END FUNC
+  END IMPL
+  FUNCTION calculate_physics(p: Player, delta: number) -> void
+    BLOCK
+      LOCAL gravity: number = 9.81
+      LOCAL is_falling: bool, speed: number = true, 0
+      IF (p.score > 1000) THEN
+        BLOCK
+          EXPR print("Highscore!")
+        END BLOCK
+      ELSE
+        IF (p.score < 0) THEN
+          BLOCK
+            EXPR print("Game Over")
+          END BLOCK
+        ELSE
+          BLOCK
+            EXPR print("Keep going")
+          END BLOCK
+      WHILE is_falling DO
+        BLOCK
+          ASSIGN speed = (speed + (gravity * delta))
+          IF (speed > 100) THEN
+            BLOCK
+              BREAK
+            END BLOCK
+        END BLOCK
+      REPEAT
+        BLOCK
+          ASSIGN delta = (delta - 0.1)
+        END BLOCK
+      UNTIL (delta <= 0)
+      FOR i = 0, 10, 1 DO
+        BLOCK
+          LOCAL val: number = (i * 2)
+        END BLOCK
+      FOR k, v IN pairs(p.inventory) DO
+        BLOCK
+          EXPR print(v)
+        END BLOCK
+      RETURN 
+    END BLOCK
+  END FUNC
+  LOCAL raw_string: string = "	Dit is een raw string.
+	Multiline.
+	Heel vet
+"
+END BLOCK
